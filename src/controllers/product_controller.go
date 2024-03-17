@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"Database/src/models"
-	"log"
 	"net/http"
 	"strconv"
 
@@ -16,14 +15,14 @@ func GetAllProducts(c *gin.Context) {
 		return
 	}
 	products := productsInterface
-	c.JSON(http.StatusOK, gin.H{"message": "Startups fetched successfully", "status": "success", "data": products})
+	c.JSON(http.StatusOK, gin.H{"message": "Products fetched successfully", "status": "success", "data": products})
 }
 
 func GetProductById(c *gin.Context) {
 	productId := c.Param("id")
 	id, err := strconv.Atoi(productId)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Startup ID is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Product ID is required"})
 		return
 	}
 	productInfo, err := models.SelectQueryById(models.Database, id)
@@ -31,63 +30,59 @@ func GetProductById(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Startup fetched successfully", "status": "success", "data": productInfo})
+	c.JSON(http.StatusOK, gin.H{"message": "Product fetched successfully", "status": "success", "data": productInfo})
 }
 
 func CreateProduct(c *gin.Context) {
 	var product models.Product
 	if err := c.BindJSON(&product); err != nil {
-		log.Println("Failed to bind JSON: ", err)
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid JSON"})
 		return
 	}
-	id, err := strconv.Atoi(product.Id)
+	if err := models.InsertQuery(models.Database, product); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "failed", "message": err.Error(), "data": nil})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"status": "success", "message": "Product saved successfully"})
+}
+
+func UpdateProduct(c *gin.Context) {
+	var updateData struct {
+		Price int `json:"price"`
+		Count int `json:"count"`
+	}
+
+	if err := c.BindJSON(&updateData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "failed", "message": "Invalid JSON data"})
+		return
+	}
+	productId := c.Param("id")
+	id, err := strconv.Atoi(productId)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid ID format"})
+		c.JSON(http.StatusBadRequest, gin.H{"status": "failed", "message": "Product ID is required"})
 		return
 	}
 
-	if err := models.InsertQuery(models.Database, models.Product{Id: id, Name: product.Name, Price: product.Price, Count: product.Count}); err != nil {
-		log.Println("Failed to create product:", err)
+	if err := models.UpdateQuery(models.Database, id, updateData.Price, updateData.Count); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"status": "failed", "message": err.Error(), "data": nil})
 		return
 	}
 
-	// log.Println("Product created successfully - ID:", product.Id)
-	c.JSON(http.StatusCreated, gin.H{"status": "success", "message": "Startup saved successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Product fetched successfully", "status": "success"})
 }
 
-// func UpdateStartup(c *gin.Context) {
-// 	startupID := c.Param("id")
+func DeleteProduct(c *gin.Context) {
+	productId := c.Param("id")
+	id, err := strconv.Atoi(productId)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "failed", "message": "Product ID is required"})
+		return
+	}
 
-// 	var updatedStartup *models.Startup
-// 	if err := c.ShouldBindJSON(&updatedStartup); err != nil {
-// 		c.JSON(http.StatusBadRequest, gin.H{"status": "failed", "message": err.Error(), "data": nil})
-// 		return
-// 	}
+	if err := models.DeleteQuery(models.Database, id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "failed", "message": err.Error(), "data": nil})
+		return
+	}
 
-// 	updatedStartup, err := updatedStartup.UpdateStartup(startupID)
-// 	if err != nil {
-// 		c.JSON(http.StatusBadRequest, gin.H{"status": "failed", "message": err.Error(), "data": nil})
-// 		return
-// 	}
-
-// 	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Startup updated successfully", "data": updatedStartup})
-// }
-
-// func DeleteStartup(c *gin.Context) {
-// 	startupID := c.Param("id")
-// 	if startupID == "" {
-// 		c.JSON(http.StatusBadRequest, gin.H{"message": "Startup ID is required"})
-// 		return
-// 	}
-
-// 	err := models.DeleteStartup(startupID)
-// 	if err != nil {
-// 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-// 		return
-// 	}
-
-// 	c.JSON(http.StatusOK, gin.H{"message": "Startup deleted successfully", "status": "success", "data": nil})
-// }
+	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Startup deleted successfully"})
+}
